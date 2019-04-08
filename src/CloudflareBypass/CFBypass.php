@@ -1,6 +1,6 @@
 <?php
 namespace CloudflareBypass;
-
+include("JSFUCK.php");
 use \CloudflareBypass\Util\Logger;
 
 /**
@@ -171,77 +171,58 @@ class CFBypass
      * @param string $iuam  CF IUAM page.
      * @return float  jschl answer.
      */
-    public static function getJschlAnswer( $iuam )
+    public static function getJschlAnswer( $iuam,$url )
     {
+    	//View Page Test
+        //echo str_replace("plus","",str_replace("function(p){return eval",'function(p){alert(eval((true+"")[0]+".ch"+(false+"")[1]+(true+"")[1]+Function("return escape")()(("")["italics"]())[2]+"o"+(undefined+"")[2]+(true+"")[3]+"A"+(true+"")[0]+"("+p+")"));return eval',str_replace("t.firstChild.href",'"'.$url.'"',str_replace("4000","0",str_replace("f.submit();","",str_replace("f.action += location.hash;","f.action =\"".$url."cdn-cgi/l/chk_jschl\";",$iuam))))));
+       
+        //Second Function
+        preg_match('/\(function\(p\)\{.*\}\((.*?)\)\)\);/',$iuam,$function2);
+        $calc=calculate_jsfuck($function2[1]);
+        $link=str_replace(array("https://","http://"),"",$url);
+        $link=substr($link,0,-1);
+        $charted_text = hexdec(bin2hex(mb_convert_encoding(mb_substr($link, eval('return '.$calc.';'), 1, 'UTF-8'),'UTF-32BE','UTF-8')));
+        $iuam = str_replace($function2[0],"(plus".$charted_text."));",$iuam);
+        
+        //First Function
+        preg_match('/function\(p\)\{.*\(p\)\}\(\);/',$iuam,$function1);
+        preg_match('/<div style=\".*\" id=\"cf-dn-.*\">(.*?)</',$iuam,$replacer);
+        $c = $replacer[1];
+        $iuam = str_replace($function1[0],$c.";",$iuam);
         // -- 1. Extract JavaScript challenge from IUAM page.
-
         $iuam_jschl = "";
         
         preg_match( '/(?<=s,t,o,p,b,r,e,a,k,i,n,g,f,\s)(\w+)={"(\w+)":(.+?)(?=})/', $iuam, $iuam_jschl_def_matches );
-
         list( $_, $var1, $var2, $code ) = $iuam_jschl_def_matches;
-
+        
+        $iuam=str_replace("a.value = (+$var1.$var2).toFixed(10); '; 121'","",$iuam);
         preg_match_all( '/' . $var1 . '\.' . $var2 . '[+\-*\/]?=.+?;/', $iuam, $iuam_jschl_matches );
-
-        $iuam_jschl .= "\$jschl_answer=$code;\n";
-
+        $iuam_jschl = "=$code\n";
         foreach ( $iuam_jschl_matches[0] as $jschl_match ) {
-            $iuam_jschl .= str_replace( "$var1.$var2", '$jschl_answer', $jschl_match ) . "\n";
+            $iuam_jschl.= str_replace( array("$var1.$var2",";"), '', $jschl_match ) . "\n";
         }
-
-
-
+        
         // -- 2. Solve JavaScript challenge.
-
-        $iuam_jschl = str_replace( ']+[]', '].""', $iuam_jschl );
-        $iuam_jschl = str_replace( array( '![]', '+[]' ), 0, $iuam_jschl );
-
-        while( preg_match_all( '/\([^()]+\)/', $iuam_jschl, $iuam_jschl_eq_matches ) ) {
-            
-            foreach ( $iuam_jschl_eq_matches[0] as $eq_match ) {
-                if ( strpos( $eq_match, '.""' ) !== false ) {
-                    
-                    $eq_answer = '"' . implode( "", array_map( function($match){
-                        
-                        // Calculate equation and return as string.
-                        return eval('return ' . str_replace( array( '(', ')' ), "", $match ) . ';');
-                        
-                    }, array_filter( explode( '.""', $eq_match ), function($elem){
-                        
-                        // Remove empty strings resulting from split.
-                        return trim(str_replace( array( '(', ')' ), "", $elem )) !== "";
-                    
-                    } ) ) ) . '"';
-                    
-                    $iuam_jschl = str_replace( $eq_match, $eq_answer, $iuam_jschl );
-                    
-                } else {
-                    
-                    if (strpos( $eq_match, '"' ) !== false) {
-                        $eq_answer = implode( '.', array_map( function($match){
-                            
-                            return strpos( $match, '"' ) !== false ? $match : '"' . $match . '"';
-                            
-                        }, explode( '+', $eq_match ) ) );                
-                    } else {
-                        $eq_answer = $eq_match;
-                    }
-
-                    // Calculate equation.
-                    $eq_answer  = eval('return ' . str_replace( array( '(', ')' ), "", $eq_answer ) . ';');
-                    
-                    $iuam_jschl = str_replace( $eq_match, $eq_answer, $iuam_jschl );
-            
-                }
-            }
+        $iuam_jschl_ex=explode("\n",$iuam_jschl);
+        $longcalc="";
+        for($i=0;$i<count($iuam_jschl_ex)-1;$i++){
+        	$dataiuam=explode("=",$iuam_jschl_ex[$i]);
+        	if(strlen($dataiuam[0])>0){
+        		if(is_numeric($dataiuam[1])){
+        			$longcalc=eval('return '.$longcalc.$dataiuam[0].$dataiuam[1].';');
+        		}else{
+        			$longcalc=eval('return '.$longcalc.$dataiuam[0].eval('return '.calculate_jsfuck($dataiuam[1]).';').';');
+        		}
+        	}else{
+        		
+        		if(is_numeric($dataiuam[1])){
+        			$longcalc=$dataiuam[1];
+        		}else{
+        			$longcalc=eval('return '.calculate_jsfuck($dataiuam[1]).';');
+        		}
+        	}
         }
-
-
-
-        // -- 3. Get JavaScript answer.
-
-        eval( $iuam_jschl );
-
+        $jschl_answer=eval('return '.$longcalc.';');
         return round( $jschl_answer, 10 );
     }
 
