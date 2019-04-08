@@ -124,7 +124,7 @@ class CFBypass
 
             $uri = parse_url( $url );
 
-            $jschl_answer = self::getJschlAnswer( $iuam ) + mb_strlen( $uri['host'] );
+            $jschl_answer = self::getJschlAnswer( $iuam ,$url) + mb_strlen( $uri['host'] );
 
             // Debug
             if ($verbose_mode) {
